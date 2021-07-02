@@ -148,3 +148,15 @@ elm/*.js
 !elm/bootstrap.js
 wasm/*.wat
 wasm/*.wasm
+
+!rust.2/step0_repl
+!rust.2/step1_read_print
+!rust.2/step2_eval
+!rust.2/step3_env
+!rust.2/step4_if_fn_do
+!rust.2/step5_tco
+!rust.2/step6_file
+!rust.2/step7_quote
+!rust.2/step8_macros
+!rust.2/step9_try
+!rust.2/stepA_mal
