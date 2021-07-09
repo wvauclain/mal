@@ -1,4 +1,4 @@
-use std::collections::LinkedList;
+use std::collections::BTreeMap;
 
 mod errors;
 pub use errors::*;
@@ -6,7 +6,7 @@ pub use errors::*;
 pub mod printer;
 pub mod reader;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Token {
     /// The special two characters `~@`
     SpecialTwoCharacter,
@@ -20,14 +20,16 @@ pub enum Token {
     CharacterSequence(String),
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub enum Form {
-    List(LinkedList<Form>),
+    List(Vec<Form>),
+    Vector(Vec<Form>),
+    Map(BTreeMap<Form, Form>),
     Number(i64),
     Symbol(String),
     String(String),
+    Keyword(String),
     Nil,
     True,
     False,
-    // TODO: add more data types
 }
