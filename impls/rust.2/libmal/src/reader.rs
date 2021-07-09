@@ -94,6 +94,11 @@ impl<'a> Reader<'a> {
                     // Advance again to get past the escaped double-quote
                     self.input.next();
                 }
+                Some(c) if c == '\\' && self.input.peek() == Some(&'n') => {
+                    out.push('\n');
+                    // Advance again to get past the escaped double-quote
+                    self.input.next();
+                }
                 Some(c) => out.push(c),
             };
         }

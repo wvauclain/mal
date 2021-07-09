@@ -59,5 +59,5 @@ fn eval(input: Form) -> Form {
 }
 
 fn print(input: Form) -> String {
-    pr_str(&input)
+    pr_str(&input, true)
 }
