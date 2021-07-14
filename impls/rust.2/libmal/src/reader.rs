@@ -1,13 +1,13 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::iter::Peekable;
 
-use super::{Form, ParseError, Token};
+use super::{Atom, Form, Object, ParseError, Token};
 
 pub struct Reader<'a> {
     input: Peekable<Box<dyn Iterator<Item = char> + 'a>>,
 }
 
-pub fn read_str(input: &String) -> Result<Form, ParseError> {
+pub fn read_str(input: &String) -> Result<Object, ParseError> {
     let mut reader = Reader::new(input.chars()).peekable();
     return read_form(&mut reader);
 }
@@ -19,31 +19,28 @@ fn peek_token<'a>(
     Ok(reader.peek().as_ref().ok_or(none_error)?.as_ref()?)
 }
 
-pub fn read_form(reader: &mut Peekable<Reader>) -> Result<Form, ParseError> {
+pub fn read_form(reader: &mut Peekable<Reader>) -> Result<Object, ParseError> {
     let token = reader.peek().ok_or(ParseError::MissingForm)?.as_ref()?;
 
     match token {
         Token::SpecialCharacter('[') => {
             reader.next();
-            Ok(Form::Vector(read_list(
+            Ok(Form::vector(read_list(
                 reader,
                 ']',
                 ParseError::UnbalancedSquareBrackets,
-            )?))
+            )?)
+            .into())
         }
         Token::SpecialCharacter(']') => Err(ParseError::UnexpectedCloseSquareBracket),
         Token::SpecialCharacter('{') => {
             reader.next();
-            Ok(Form::Map(read_map(reader)?))
+            Ok(Form::map(read_map(reader)?).into())
         }
         Token::SpecialCharacter('}') => Err(ParseError::UnexpectedCloseCurlyBracket),
         Token::SpecialCharacter('(') => {
             reader.next();
-            Ok(Form::List(read_list(
-                reader,
-                ')',
-                ParseError::UnbalancedParens,
-            )?))
+            Ok(Form::list(read_list(reader, ')', ParseError::UnbalancedParens)?).into())
         }
         Token::SpecialCharacter(')') => Err(ParseError::UnexpectedCloseParen),
         Token::SpecialCharacter('\'') => Ok(call("quote", reader, 1)?),
@@ -59,21 +56,20 @@ pub fn read_form(reader: &mut Peekable<Reader>) -> Result<Form, ParseError> {
             reader.next();
             read_form(reader)
         }
-        Token::String(s) => Ok(Form::String(s.clone())),
+        Token::String(s) => Ok(Form::string(s.clone()).into()),
         Token::CharacterSequence(s) => {
             if let Ok(num) = i64::from_str_radix(s.as_ref(), 10) {
-                Ok(Form::Number(num))
+                Ok(Form::number(num).into())
             } else if s == "nil" {
-                Ok(Form::Nil)
+                Ok(Form::NIL.into())
             } else if s == "true" {
-                Ok(Form::True)
+                Ok(Form::TRUE.into())
             } else if s == "false" {
-                Ok(Form::False)
+                Ok(Form::FALSE.into())
             } else if s.chars().nth(0) == Some(':') {
-                Ok(Form::Keyword(s.as_str()[1..].to_owned()))
+                Ok(Form::keyword(&s.as_str()[1..]).into())
             } else {
-                // TODO: we need to do more sophisticated things here eventually
-                Ok(Form::Symbol(s.clone()))
+                Ok(Form::symbol(s).into())
             }
         }
     }
@@ -83,7 +79,7 @@ fn read_list(
     reader: &mut Peekable<Reader>,
     end_char: char,
     unbalanced_error: ParseError,
-) -> Result<Vec<Form>, ParseError> {
+) -> Result<Vec<Object>, ParseError> {
     let mut out = Vec::new();
 
     loop {
@@ -99,8 +95,8 @@ fn read_list(
     Ok(out)
 }
 
-fn read_map(reader: &mut Peekable<Reader>) -> Result<BTreeMap<Form, Form>, ParseError> {
-    let mut map = BTreeMap::new();
+fn read_map(reader: &mut Peekable<Reader>) -> Result<HashMap<Atom, Object>, ParseError> {
+    let mut map = HashMap::new();
 
     loop {
         let key = match peek_token(reader, ParseError::UnbalancedCurlyBrackets)? {
@@ -108,6 +104,11 @@ fn read_map(reader: &mut Peekable<Reader>) -> Result<BTreeMap<Form, Form>, Parse
             _ => read_form(reader)?,
         };
         reader.next();
+
+        let key = match &*key.borrow() {
+            Form::Atom(a) => a.clone(),
+            Form::Compound(_) => return Err(ParseError::UnexpectedCompound),
+        };
 
         let value = match peek_token(reader, ParseError::UnbalancedCurlyBrackets)? {
             Token::SpecialCharacter('}') => return Err(ParseError::KeyWithoutValue),
@@ -125,31 +126,33 @@ fn call<S: AsRef<str>>(
     fun: S,
     reader: &mut Peekable<Reader>,
     num_args: u32,
-) -> Result<Form, ParseError> {
-    let mut l = vec![Form::Symbol(fun.as_ref().to_string())];
+) -> Result<Object, ParseError> {
+    let mut l = vec![Form::symbol(fun.as_ref().to_string()).into()];
 
     for _ in 0..num_args {
         reader.next().ok_or(ParseError::MissingForm)??;
         l.push(read_form(reader)?)
     }
 
-    Ok(Form::List(l))
+    Ok(Form::list(l).into())
 }
 
 /// with-meta uses its two arguments in reverse order, so we need to do this specially
-fn with_meta(reader: &mut Peekable<Reader>) -> Result<Form, ParseError> {
+fn with_meta(reader: &mut Peekable<Reader>) -> Result<Object, ParseError> {
     let mut l = Vec::new();
-    l.resize(3, Form::Nil);
 
-    l[0] = Form::Symbol("with-meta".to_owned());
-
-    reader.next().ok_or(ParseError::MissingForm)??;
-    l[2] = read_form(reader)?;
+    l.push(Form::symbol("with-meta").into());
 
     reader.next().ok_or(ParseError::MissingForm)??;
-    l[1] = read_form(reader)?;
+    let arg2 = read_form(reader)?;
 
-    Ok(Form::List(l))
+    reader.next().ok_or(ParseError::MissingForm)??;
+    let arg1 = read_form(reader)?;
+
+    l.push(arg1);
+    l.push(arg2);
+
+    Ok(Form::list(l).into())
 }
 
 impl<'a> Reader<'a> {

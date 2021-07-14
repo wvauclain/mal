@@ -5,7 +5,7 @@ use rustyline::Editor;
 
 use libmal::printer::pr_str;
 use libmal::reader::read_str;
-use libmal::{Form, ParseError};
+use libmal::{Object, ParseError};
 
 fn main() {
     let mut rl = Editor::<()>::new();
@@ -38,14 +38,14 @@ fn try_rep(input: String) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn read(input: String) -> Result<Form, ParseError> {
+fn read(input: String) -> Result<Object, ParseError> {
     read_str(&input)
 }
 
-fn eval(input: Form) -> Result<Form, Box<dyn Error>> {
+fn eval(input: Object) -> Result<Object, Box<dyn Error>> {
     Ok(input)
 }
 
-fn print(input: Form) -> String {
-    pr_str(&input, true)
+fn print(input: Object) -> String {
+    pr_str(&*input.borrow(), true)
 }

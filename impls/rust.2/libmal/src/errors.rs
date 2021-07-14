@@ -9,6 +9,7 @@ pub enum ParseError {
     UnexpectedCloseParen,
     UnexpectedCloseSquareBracket,
     UnexpectedCloseCurlyBracket,
+    UnexpectedCompound,
     KeyWithoutValue,
     /// EOF is reached when a Form is expected
     MissingForm,
@@ -33,6 +34,7 @@ impl std::fmt::Display for ParseError {
                 ParseError::UnexpectedCloseParen => "unexpected close paren",
                 ParseError::UnexpectedCloseSquareBracket => "unexpected close square bracket",
                 ParseError::UnexpectedCloseCurlyBracket => "unexpected close curly bracket",
+                ParseError::UnexpectedCompound => "compound value used as a key in a map",
                 ParseError::KeyWithoutValue => "found key without corresponding value",
                 ParseError::MissingForm => "reached EOF while searching for form",
             }
