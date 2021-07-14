@@ -43,3 +43,28 @@ impl std::fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+#[derive(Clone, Copy, Debug)]
+pub enum RuntimeError {
+    NotCallable,
+}
+
+impl From<&RuntimeError> for RuntimeError {
+    fn from(err: &RuntimeError) -> RuntimeError {
+        *err
+    }
+}
+
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{}",
+            match self {
+                RuntimeError::NotCallable => "tried calling something that wasn't callable",
+            }
+        )
+    }
+}
+
+impl std::error::Error for RuntimeError {}

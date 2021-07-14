@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::errors::RuntimeError;
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Token {
     /// The special two characters `~@`
@@ -17,7 +19,8 @@ pub enum Token {
 }
 
 pub struct MalFn {
-    pub exec: Box<dyn Fn(Vec<Object>) -> Object>,
+    // TODO: these functions need to handle failure, they should probably return RuntimeError
+    pub exec: Box<dyn Fn(&[Object]) -> Object>,
     /// If a Mal function is defined inside Mal, this will hold the contents of
     /// the `defun` to be displayed upon request
     pub code: Option<Object>,
@@ -46,6 +49,7 @@ pub enum Form {
     Compound(Compound),
 }
 
+#[derive(Clone)]
 pub struct Object(Rc<RefCell<Form>>);
 
 impl Form {
@@ -81,8 +85,11 @@ impl Form {
         Form::Compound(Compound::Map(m))
     }
 
-    pub fn mal_fn(f: MalFn) -> Form {
-        Form::Compound(Compound::Fn(f))
+    pub fn builtin(f: impl Fn(&[Object]) -> Object + 'static) -> Form {
+        Form::Compound(Compound::Fn(MalFn {
+            exec: Box::new(f),
+            code: None,
+        }))
     }
 }
 
@@ -91,6 +98,13 @@ impl Object {
         self.0.borrow()
     }
 
+    pub fn call(&self, args: &[Object]) -> Result<Object, RuntimeError> {
+        if let Form::Compound(Compound::Fn(f)) = &*self.borrow() {
+            Ok((f.exec)(args))
+        } else {
+            Err(RuntimeError::NotCallable)
+        }
+    }
 }
 
 impl From<Form> for Object {
